@@ -38,5 +38,37 @@ pipeline {
                 }
             }
         }
+        stage('Deploy-to-Production') {
+            when {
+                branch 'master'
+            }
+            steps {
+                input 'Does the staging environment look ok?'
+                milestone(1)
+                withCredentials([usernamePassword(credentialsId: 'webserver-login', passwordVariable: 'USERPASS', usernameVariable: 'USERNAME')]) {
+                    sshPublisher(
+                        failOnError: true,
+                        continueOnError: false, 
+                        publishers: [
+                            sshPublisherDesc(
+                                configName: 'production', 
+                                //sshCredentials: [
+                                //    encryptedPassphrase: '$USERPASS', 
+                                //    username: '$USERNAME'], 
+                                transfers: [
+                                    sshTransfer(
+                                        sourceFiles: 'dist/trainSchedule.zip',
+                                        removePrefix: 'dist',
+                                        remoteDirectory: '/tmp/',  
+                                        execCommand: 'sudo /usr/bin/systemctl stop train-schedule && rm -rf /opt/train-schedule/* && unzip /tmp/trainSchedule.zip -d /opt/train-schedule/ && sudo /usr/bin/systemctl start train-schedule' 
+                                    )
+                                ],  
+                                verbose: true
+                            )
+                        ]
+                    )
+                }
+            }
+        }         
     }
 }
